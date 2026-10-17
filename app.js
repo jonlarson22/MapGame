@@ -149,6 +149,9 @@ function renderTopBar() {
   for (const btn of els.modeSeg.querySelectorAll('button')) {
     btn.classList.toggle('active', btn.dataset.mode === store.state.colorMode);
   }
+  // The person dropdown only matters in Combined mode — Individual already
+  // shows everyone by color — so hide it otherwise.
+  els.viewerSelect.style.display = store.state.colorMode === 'combined' ? '' : 'none';
 }
 
 // Paint every state/province path: unmarked gray, one solid color, or a

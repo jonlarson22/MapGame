@@ -114,7 +114,7 @@ export function createStore(storage) {
     // ---- preferences (top bar) ----
     setRegion(r)   { if (REGIONS[r] && state.region !== r)   { state.region = r; save(); } },
     setViewer(v)   { if (state.viewer !== v)   { state.viewer = v; save(); } },
-    setColorMode(m){ if ((m === 'combined' || m === 'individual') && state.colorMode !== m) { state.colorMode = m; save(); } },
+    setColorMode(m){ if ((m === 'combined' || m === 'individual') && state.colorMode !== m) { state.colorMode = m; if (m === 'individual') state.viewer = 'group'; save(); } },
 
     // ---- trips ----
     addTrip(name) {

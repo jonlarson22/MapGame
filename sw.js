@@ -2,7 +2,7 @@
 // road-trip dead zones. Bump CACHE whenever shipped files change, otherwise
 // phones keep serving the old version.
 
-const CACHE = 'mapgame-v3';
+const CACHE = 'mapgame-v4';
 
 const APP_SHELL = [
   './',
