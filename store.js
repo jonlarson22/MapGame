@@ -57,7 +57,7 @@ function blankState() {
     activeTripId: trip.id,
     region: 'US',        // 'US' | 'CA' | 'EU'
     viewer: 'group',     // 'group' | memberId
-    colorMode: 'combined', // 'combined' | 'individual'
+    colorMode: 'individual', // 'combined' | 'individual'
     trips: [trip],
   };
 }
@@ -73,6 +73,12 @@ export function createStore(storage) {
     const raw = storage.getItem(STORAGE_KEY);
     state = raw ? JSON.parse(raw) : blankState();
     if (!state.trips || !state.trips.length) state = blankState();
+    // v2 migration: Individual is now the default (and leftmost) color mode.
+    if (!state.version || state.version < 2) {
+      state.colorMode = 'individual';
+      state.version = 2;
+      save();
+    }
   } catch (e) {
     state = blankState(); // corrupt save? start fresh rather than crash
   }
