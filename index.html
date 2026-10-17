@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2f80ed">
+  <meta name="description" content="MapGame — tap the states you spot on road trips. Family license-plate spotting game.">
+  <title>MapGame</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+</head>
+<body>
+  <!-- Always-visible top bar: title + counter, then all the controls -->
+  <header id="topbar">
+    <div class="bar-row">
+      <div class="brand">🗺️ MapGame</div>
+      <div class="counter-block">
+        <div id="countText">0/50 states</div>
+        <div class="progress" id="progressWrap"><div id="progressFill"></div></div>
+      </div>
+      <button id="membersBtn" class="icon-btn" aria-label="Family members">👥</button>
+    </div>
+    <div class="bar-row controls">
+      <div class="seg" id="regionSeg" role="group" aria-label="Region">
+        <button data-region="US" class="active" aria-pressed="true">US</button><button data-region="CA" aria-pressed="false">Canada</button><button data-region="EU" aria-pressed="false">Europe</button>
+      </div>
+      <div class="trip-wrap">
+        <select id="tripSelect" aria-label="Trip"></select>
+        <button id="tripAdd" class="icon-btn" aria-label="New trip">＋</button>
+      </div>
+      <select id="viewerSelect" aria-label="Whose spots to show"></select>
+      <div class="seg" id="modeSeg" role="group" aria-label="Color mode">
+        <button data-mode="combined" class="active">Combined</button><button data-mode="individual">Individual</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div id="mapHolder" aria-label="Tappable map"></div>
+
+    <!-- Europe is one bucket: no per-country map, just a counter card -->
+    <section id="europeCard" hidden>
+      <div class="eu-count"><span id="euCount">0</span></div>
+      <div class="eu-label">European plates spotted</div>
+      <div class="eu-actions">
+        <button id="euPlus" class="big-btn">+1 Spot</button>
+        <button id="euUndo" class="big-btn secondary">Undo</button>
+      </div>
+      <ul id="euList"></ul>
+    </section>
+
+    <details id="missingBox">
+      <summary id="missingSummary">Still missing</summary>
+      <div id="missingList"></div>
+    </details>
+  </main>
+
+  <!-- Bottom sheet: who spotted this state, and when -->
+  <div id="sheet" hidden>
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <h2 id="sheetTitle"></h2>
+      <div id="sheetRows"></div>
+      <div class="sheet-actions">
+        <button id="sheetUnmark" class="big-btn secondary">Remove my mark</button>
+        <button id="sheetClose" class="big-btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Members modal: device identity, add/remove/recolor, trip settings -->
+  <div id="membersModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Family members">
+      <div class="modal-head">
+        <h2>Family</h2>
+        <button id="modalClose" class="icon-btn" aria-label="Close">×</button>
+      </div>
+
+      <h3>This device is</h3>
+      <div id="deviceChips" class="chips"></div>
+
+      <h3>Members</h3>
+      <div id="memberRows"></div>
+
+      <h3>Add member</h3>
+      <div class="add-row">
+        <input id="newName" type="text" placeholder="Name" maxlength="24" autocomplete="off">
+        <button id="addMemberBtn" class="big-btn">Add</button>
+      </div>
+      <div id="paletteRow" class="palette"></div>
+
+      <h3>Trip</h3>
+      <div class="trip-row">
+        <span id="tripNameLabel"></span>
+        <button id="tripRename" class="small-btn">Rename</button>
+        <button id="tripDelete" class="small-btn danger">Delete</button>
+      </div>
+      <p class="fine">Map shapes © <a href="https://www.amcharts.com/svg-maps/" target="_blank" rel="noopener">amCharts</a> (CC BY 4.0).</p>
+    </div>
+  </div>
+
+  <div id="toast" hidden></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
