@@ -57,14 +57,17 @@
     </details>
   </main>
 
-  <!-- Bottom sheet: who spotted this state, and when -->
+  <!-- Bottom sheet: state card — name, who spotted it, fun facts, actions -->
   <div id="sheet" hidden>
     <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
       <h2 id="sheetTitle"></h2>
       <div id="sheetRows"></div>
+      <h3 id="sheetFactsTitle" class="facts-title" hidden>Fun facts</h3>
+      <dl id="sheetFacts" class="facts" hidden></dl>
       <div class="sheet-actions">
+        <button id="sheetMark" class="big-btn">Mark as spotted</button>
         <button id="sheetUnmark" class="big-btn secondary">Remove my mark</button>
-        <button id="sheetClose" class="big-btn">Close</button>
+        <button id="sheetClose" class="big-btn secondary">Close</button>
       </div>
     </div>
   </div>

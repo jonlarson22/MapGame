@@ -339,6 +339,37 @@ main {
   font-size: 1rem;
 }
 
+.facts-title {
+  margin: 14px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 7px 14px;
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+}
+
+.facts dt {
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.facts dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
 .sheet-actions {
   display: flex;
   gap: 10px;

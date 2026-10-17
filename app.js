@@ -6,6 +6,7 @@
 // and turns taps into store calls.
 
 import { createStore, PALETTE, COMBINED_COLOR, REGIONS } from './store.js';
+import { STATE_FACTS, PROVINCE_FACTS } from './facts.js';
 
 // ---------------------------------------------------------------------------
 // Static data: region codes + display names (the SVG files use these codes
@@ -43,6 +44,10 @@ const TAP_DELAY_MS = 300;
 // If the finger moves more than this between press and release, it was a
 // pan/pinch, not a tap.
 const TAP_SLOP_PX = 12;
+// Press-and-hold this long on a state to pop its fact card. Shorter than the
+// old 600ms "too long for a tap" cutoff, so a hold never falls through to
+// the tap logic.
+const HOLD_MS = 500;
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -67,7 +72,8 @@ const els = {
   euCount: $('euCount'), euPlus: $('euPlus'), euUndo: $('euUndo'), euList: $('euList'),
   missingBox: $('missingBox'), missingSummary: $('missingSummary'), missingList: $('missingList'),
   sheet: $('sheet'), sheetCard: $('sheetCard'), sheetTitle: $('sheetTitle'),
-  sheetRows: $('sheetRows'), sheetUnmark: $('sheetUnmark'), sheetClose: $('sheetClose'),
+  sheetRows: $('sheetRows'), sheetFactsTitle: $('sheetFactsTitle'), sheetFacts: $('sheetFacts'),
+  sheetMark: $('sheetMark'), sheetUnmark: $('sheetUnmark'), sheetClose: $('sheetClose'),
   modal: $('membersModal'), modalCard: $('modalCard'),
   deviceChips: $('deviceChips'), memberRows: $('memberRows'),
   newName: $('newName'), paletteRow: $('paletteRow'), addMemberBtn: $('addMemberBtn'),
@@ -259,6 +265,8 @@ function wireTapHandling(svg) {
   if (!svg) return;
   let downX = 0, downY = 0, downT = 0;
   let pending = null; // { code, timer } — a tap waiting to see if tap #2 arrives
+  let holdTimer = null;
+  let holdFired = false; // the hold already opened the sheet: swallow the pointerup
 
   function pathForEvent(e) {
     const p = e.target.closest ? e.target.closest('path.region') : null;
@@ -266,11 +274,37 @@ function wireTapHandling(svg) {
     return p;
   }
 
+  function cancelHold() {
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+  }
+
   svg.addEventListener('pointerdown', (e) => {
     downX = e.clientX; downY = e.clientY; downT = Date.now();
+    holdFired = false;
+    cancelHold();
+    // Start the hold timer only on a real region — a hold is "tell me about
+    // this state", and it must not fire from empty map background.
+    const path = pathForEvent(e);
+    if (path) {
+      const code = path.id;
+      holdTimer = setTimeout(() => {
+        holdTimer = null;
+        holdFired = true;
+        cancelPending(); // a hold is not a tap — drop the waiting single tap
+        onHold(code);
+      }, HOLD_MS);
+    }
+  });
+
+  svg.addEventListener('pointermove', (e) => {
+    // Finger slid: it's a pan/pinch, not a hold — kill the timer.
+    if (holdTimer && Math.hypot(e.clientX - downX, e.clientY - downY) > TAP_SLOP_PX) cancelHold();
   });
 
   svg.addEventListener('pointerup', (e) => {
+    cancelHold();
+    // The hold already handled this press: never fall through to tap logic.
+    if (holdFired) { holdFired = false; return; }
     const path = pathForEvent(e);
     if (!path) return;
     // Finger slid (pan/pinch) or pressed too long: not a tap.
@@ -289,6 +323,13 @@ function wireTapHandling(svg) {
         timer: setTimeout(() => { pending = null; onSingleTap(code); }, TAP_DELAY_MS),
       };
     }
+  });
+
+  // The OS took the gesture (scroll/zoom interrupted us): reset everything.
+  svg.addEventListener('pointercancel', () => {
+    cancelHold();
+    holdFired = false;
+    cancelPending();
   });
 
   function cancelPending() {
@@ -341,8 +382,56 @@ function onDoubleTap(code) {
 }
 
 // ---------------------------------------------------------------------------
-// Detail sheet (tap an already-spotted state)
+// Detail sheet: state/province name, then who spotted it on the active trip,
+// then fun facts, then actions. Opens on hold, or on single-tap of a state
+// the device member already marked.
 // ---------------------------------------------------------------------------
+
+// Press-and-hold: viewing is free — no device-member gate. Marking still
+// goes through requireDeviceMember via the sheet's Mark button.
+function onHold(code) {
+  openSheet(store.state.region, code);
+}
+
+function ordinal(n) {
+  const suffixes = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
+}
+
+function renderFacts(region, code) {
+  const facts = region === 'US' ? STATE_FACTS[code] : PROVINCE_FACTS[code];
+  const show = !!facts;
+  els.sheetFactsTitle.hidden = !show;
+  els.sheetFacts.hidden = !show;
+  if (!show) return;
+
+  els.sheetFacts.innerHTML = '';
+  const rows = region === 'US'
+    ? [
+        ['Population (2024 est.)', facts.pop],
+        ['Became a state', `${facts.admitted} — ${ordinal(facts.order)}`],
+        ['Motto', facts.motto],
+        ['Nickname', facts.nick],
+        ['State bird', facts.bird],
+        ['State flower', facts.flower],
+      ]
+    : [
+        ['Population (2024 est.)', facts.pop],
+        ['Joined Confederation', `${facts.joined} — ${ordinal(facts.order)}`],
+        // NT and YT have no official motto — skip the row instead of faking one.
+        ...(facts.motto ? [['Motto', facts.motto]] : []),
+        ['Provincial bird', facts.bird],
+        ['Provincial flower', facts.flower],
+      ];
+  for (const [label, value] of rows) {
+    const dt = document.createElement('dt');
+    dt.textContent = label;
+    const dd = document.createElement('dd');
+    dd.textContent = value;
+    els.sheetFacts.append(dt, dd);
+  }
+}
 
 function openSheet(region, code) {
   const names = region === 'US' ? STATE_NAMES : PROVINCE_NAMES;
@@ -367,8 +456,18 @@ function openSheet(region, code) {
     els.sheetRows.textContent = 'No spots here in this view.';
   }
 
+  renderFacts(region, code);
+
   const me = deviceMember();
   const mine = me && store.hasSpot(region, code, me.id);
+  els.sheetMark.style.display = me && !mine ? '' : 'none';
+  els.sheetMark.onclick = () => {
+    const who = requireDeviceMember();
+    if (!who) return;
+    store.addSpot(region, code, who.id);
+    closeSheet();
+    toast(`Marked ${names[code]}!`);
+  };
   els.sheetUnmark.style.display = mine ? '' : 'none';
   els.sheetUnmark.onclick = () => {
     store.removeSpot(region, code, me.id);

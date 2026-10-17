@@ -2,7 +2,7 @@
 // road-trip dead zones. Bump CACHE whenever shipped files change, otherwise
 // phones keep serving the old version.
 
-const CACHE = 'mapgame-v2';
+const CACHE = 'mapgame-v3';
 
 const APP_SHELL = [
   './',
@@ -10,11 +10,11 @@ const APP_SHELL = [
   './styles.css',
   './app.js',
   './store.js',
+  './facts.js',
   './manifest.json',
   './maps/us.svg',
   './maps/ca.svg',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
+  './icons/icon.svg',
 ];
 
 self.addEventListener('install', (event) => {
