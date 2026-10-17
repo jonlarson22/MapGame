@@ -56,7 +56,7 @@ function blankState() {
     version: 1,
     activeTripId: trip.id,
     region: 'US',        // 'US' | 'CA' | 'EU'
-    viewer: 'group',     // 'group' | memberId
+    viewer: null,        // individual: memberId (player picker); combined: 'oneColor' | 'byPerson'
     colorMode: 'individual', // 'combined' | 'individual'
     trips: [trip],
   };
@@ -79,6 +79,13 @@ export function createStore(storage) {
       state.version = 2;
       save();
     }
+    // v3 migration: the viewer dropdown changed jobs — Individual picks a
+    // player, Combined picks one-color vs by-person. Repair any stale value.
+    if (!state.version || state.version < 3) {
+      state.version = 3;
+      fixViewer();
+      save();
+    }
   } catch (e) {
     state = blankState(); // corrupt save? start fresh rather than crash
   }
@@ -90,6 +97,21 @@ export function createStore(storage) {
 
   function trip() {
     return state.trips.find((t) => t.id === state.activeTripId) || state.trips[0];
+  }
+
+  // The viewer dropdown means something different per color mode, so keep it
+  // valid: Individual needs a real player, Combined needs 'oneColor'/'byPerson'.
+  function fixViewer() {
+    const t = trip();
+    if (state.colorMode === 'individual') {
+      if (!t.members.some((m) => m.id === state.viewer)) {
+        state.viewer = (t.deviceMemberId && t.members.some((m) => m.id === t.deviceMemberId))
+          ? t.deviceMemberId
+          : (t.members[0] ? t.members[0].id : null);
+      }
+    } else if (state.viewer !== 'oneColor' && state.viewer !== 'byPerson') {
+      state.viewer = 'oneColor';
+    }
   }
 
   function memberName(id) {
@@ -113,8 +135,23 @@ export function createStore(storage) {
 
     // ---- preferences (top bar) ----
     setRegion(r)   { if (REGIONS[r] && state.region !== r)   { state.region = r; save(); } },
-    setViewer(v)   { if (state.viewer !== v)   { state.viewer = v; save(); } },
-    setColorMode(m){ if ((m === 'combined' || m === 'individual') && state.colorMode !== m) { state.colorMode = m; if (m === 'individual') state.viewer = 'group'; save(); } },
+    setViewer(v) {
+      // Individual: v must be a real player. Combined: 'oneColor' | 'byPerson'.
+      if (state.colorMode === 'individual') {
+        if (!trip().members.some((m) => m.id === v)) return;
+      } else if (v !== 'oneColor' && v !== 'byPerson') {
+        return;
+      }
+      if (state.viewer !== v) { state.viewer = v; save(); }
+    },
+    setColorMode(m){
+      if ((m === 'combined' || m === 'individual') && state.colorMode !== m) {
+        state.colorMode = m;
+        state.viewer = null; // force fixViewer to pick the right default
+        fixViewer();
+        save();
+      }
+    },
 
     // ---- trips ----
     addTrip(name) {
@@ -141,8 +178,7 @@ export function createStore(storage) {
     setActiveTrip(id) {
       if (state.trips.some((t) => t.id === id) && state.activeTripId !== id) {
         state.activeTripId = id;
-        // viewer may point at a member that doesn't exist on this trip
-        if (state.viewer !== 'group' && !trip().members.some((m) => m.id === state.viewer)) state.viewer = 'group';
+        fixViewer(); // the new trip has different players
         save();
       }
     },
@@ -159,6 +195,7 @@ export function createStore(storage) {
       trip().members.push(m);
       // first member added on this device automatically claims it
       if (!trip().deviceMemberId) trip().deviceMemberId = m.id;
+      fixViewer(); // e.g. first player becomes the viewed one
       save();
       return m;
     },
@@ -166,7 +203,7 @@ export function createStore(storage) {
       const t = trip();
       t.members = t.members.filter((m) => m.id !== id);
       if (t.deviceMemberId === id) t.deviceMemberId = t.members[0] ? t.members[0].id : null;
-      if (state.viewer === id) state.viewer = 'group';
+      fixViewer(); // the viewed player may be gone
       save(); // their old spots stay on the map, shown in gray
     },
     setMemberColor(id, color) {
@@ -230,10 +267,11 @@ export function createStore(storage) {
     },
 
     // ---- counts (honor the viewer dropdown) ----
-    // viewer: 'group' shows the union of everyone's spots; a memberId shows just theirs.
+    // Combined (oneColor or byPerson) shows the union of everyone's spots;
+    // Individual filters to the picked player.
     _visibleSpotters(region, code) {
       const all = store.spottersFor(region, code);
-      if (state.viewer === 'group') return all;
+      if (state.colorMode === 'combined') return all;
       return all.filter((s) => s.memberId === state.viewer);
     },
     countSpotted(region, codes) {

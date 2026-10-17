@@ -88,12 +88,10 @@ let pickedColor = null;
 // Rendering
 // ---------------------------------------------------------------------------
 
-// Spotters for a code, filtered by the viewer dropdown ("Whole group" = union
-// of everyone; a name = just that person's spots).
+// Spotters for a code, filtered by the viewer dropdown. Combined (one color
+// or by-person) shows the union of everyone; Individual shows the picked player.
 function visibleSpotters(region, code) {
-  const all = store.spottersFor(region, code);
-  if (store.state.viewer === 'group') return all;
-  return all.filter((s) => s.memberId === store.state.viewer);
+  return store._visibleSpotters(region, code);
 }
 
 function renderTopBar() {
@@ -130,39 +128,52 @@ function renderTopBar() {
   }
   els.tripSelect.value = store.state.activeTripId;
 
-  // viewer dropdown: Whole group + one entry per member
+  // viewer dropdown: its job changes with the color mode.
+  // Individual: pick whose map to see. Combined: one color vs by-person.
   const viewer = store.state.viewer;
   els.viewerSelect.innerHTML = '';
-  const groupOpt = document.createElement('option');
-  groupOpt.value = 'group';
-  groupOpt.textContent = 'Whole group';
-  els.viewerSelect.appendChild(groupOpt);
-  for (const m of store.trip.members) {
-    const opt = document.createElement('option');
-    opt.value = m.id;
-    opt.textContent = m.name;
-    els.viewerSelect.appendChild(opt);
+  if (store.state.colorMode === 'individual') {
+    for (const m of store.trip.members) {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name;
+      els.viewerSelect.appendChild(opt);
+    }
+    if (!store.trip.members.length) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No players yet — tap 👥';
+      opt.disabled = true;
+      els.viewerSelect.appendChild(opt);
+    }
+  } else {
+    const oneOpt = document.createElement('option');
+    oneOpt.value = 'oneColor';
+    oneOpt.textContent = 'One color';
+    els.viewerSelect.appendChild(oneOpt);
+    const byOpt = document.createElement('option');
+    byOpt.value = 'byPerson';
+    byOpt.textContent = 'By person';
+    els.viewerSelect.appendChild(byOpt);
   }
-  els.viewerSelect.value = viewer;
+  els.viewerSelect.value = viewer || '';
 
   // color-mode toggle
   for (const btn of els.modeSeg.querySelectorAll('button')) {
     btn.classList.toggle('active', btn.dataset.mode === store.state.colorMode);
   }
-  // The person dropdown only matters in Combined mode — Individual already
-  // shows everyone by color — so hide it otherwise.
-  els.viewerSelect.style.display = store.state.colorMode === 'combined' ? '' : 'none';
 }
 
-// Paint every state/province path: unmarked gray, one solid color, or a
-// blended gradient when 2+ people spotted it (individual mode).
+// Paint every state/province path: unmarked gray, one solid color (combined
+// "One color"), the picked player's color (individual), or a blended gradient
+// when 2+ people spotted it (combined "By person").
 function renderMap() {
   const region = store.state.region;
   const svg = els.mapHolder.querySelector('svg');
   if (!svg || (region !== 'US' && region !== 'CA')) return;
 
   const codes = REGION_CODES[region];
-  const combined = store.state.colorMode === 'combined';
+  const oneColor = store.state.colorMode === 'combined' && store.state.viewer === 'oneColor';
 
   // Rebuild the gradient defs from scratch each render — simple and always
   // correct, and 50 tiny gradients are cheap.
@@ -185,8 +196,8 @@ function renderMap() {
     }
     path.classList.add('spotted');
 
-    if (combined || spotterIds.length === 1) {
-      const color = combined ? COMBINED_COLOR : store.memberColor(spotterIds[0]);
+    if (oneColor || spotterIds.length === 1) {
+      const color = oneColor ? COMBINED_COLOR : store.memberColor(spotterIds[0]);
       path.setAttribute('fill', color);
     } else {
       // Blend: a diagonal gradient with one stop per spotter's color,
