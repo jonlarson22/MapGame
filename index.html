@@ -80,6 +80,18 @@
         <button id="modalClose" class="icon-btn" aria-label="Close">×</button>
       </div>
 
+      <div id="familyRow" class="family-row" hidden>
+        <div>
+          <div id="familyName" class="family-name"></div>
+          <div id="familyCode" class="family-code"></div>
+        </div>
+        <button id="familyLeave" class="small-btn danger">Leave</button>
+      </div>
+      <div id="noFamilyRow" class="family-row" hidden>
+        <div class="family-name">Solo play</div>
+        <button id="familySetup" class="small-btn">Family setup</button>
+      </div>
+
       <h3>This device is</h3>
       <div id="deviceChips" class="chips"></div>
 
@@ -100,6 +112,42 @@
         <button id="tripDelete" class="small-btn danger">Delete</button>
       </div>
       <p class="fine">Map shapes © <a href="https://www.amcharts.com/svg-maps/" target="_blank" rel="noopener">amCharts</a> (CC BY 4.0).</p>
+    </div>
+  </div>
+
+  <!-- Family gate: shown when this device hasn't joined or created a family yet -->
+  <div id="familyGate" hidden>
+    <div class="gate-card" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
+      <h2 id="gateTitle">🗺️ Play together</h2>
+      <p class="gate-sub">Share trips live with your family. One person creates the family, everyone else joins with the code.</p>
+      <div id="gateMain">
+        <button id="gateCreate" class="big-btn">Create a family</button>
+        <button id="gateJoin" class="big-btn secondary">Join a family</button>
+        <button id="gateSolo" class="link-btn">Just play on this device</button>
+      </div>
+      <div id="gateCreateForm" hidden>
+        <label class="gate-label" for="familyNameInput">Family name</label>
+        <input id="familyNameInput" type="text" placeholder="The Larsons" maxlength="40" autocomplete="off">
+        <div class="gate-err" id="gateCreateErr" hidden></div>
+        <div class="gate-btns">
+          <button id="gateCreateBack" class="big-btn secondary">Back</button>
+          <button id="gateCreateGo" class="big-btn">Create</button>
+        </div>
+      </div>
+      <div id="gateJoinForm" hidden>
+        <label class="gate-label" for="familyCodeInput">Family code</label>
+        <input id="familyCodeInput" type="text" placeholder="XXXX-XXXX" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <div class="gate-err" id="gateJoinErr" hidden></div>
+        <div class="gate-btns">
+          <button id="gateJoinBack" class="big-btn secondary">Back</button>
+          <button id="gateJoinGo" class="big-btn">Join</button>
+        </div>
+      </div>
+      <div id="gateCodeShow" hidden>
+        <p class="gate-sub">Share this code with your family:</p>
+        <div id="gateBigCode" class="big-code"></div>
+        <button id="gateCodeGo" class="big-btn">Start playing</button>
+      </div>
     </div>
   </div>
 

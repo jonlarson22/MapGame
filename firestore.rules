@@ -2,10 +2,10 @@ rules_version = '2';
 
 // MapGame — family license-plate spotting game.
 //
-// Every phone signs in anonymously on launch (no login screen, no accounts),
-// so "signed in" here just means "has the app". Any signed-in device can read
-// and write the shared trips. No private data lives in this database — just
-// trip names, player names/colors, and which states were spotted when.
+// The join code IS the login: every phone signs in anonymously (no login
+// screens, no accounts), and any signed-in device that knows a family's code
+// can read/write that family's trips. The code is the document ID of the
+// family, and listing families is denied so codes can't be enumerated.
 //
 // To install: Firebase console → Firestore Database → Rules tab → paste this
 // file → Publish.
@@ -13,6 +13,21 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    match /families/{familyId} {
+      allow get: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['name', 'createdAt', 'joinCode'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 1
+        && request.resource.data.name.size() <= 60;
+      allow update, delete: if false;
+      match /trips/{tripId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+
+    // Legacy flat trips (app versions before family codes). Not read by
+    // current app versions; safe to remove once all devices have updated.
     match /trips/{tripId} {
       allow read, write: if request.auth != null;
     }

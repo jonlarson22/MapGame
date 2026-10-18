@@ -543,3 +543,90 @@ main {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ---- family gate (create / join / solo) ---- */
+
+#familyGate {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(20, 30, 60, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.gate-card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 24px;
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(20, 30, 60, 0.25);
+}
+
+.gate-card h2 { margin: 0 0 8px; }
+.gate-sub { color: var(--muted); margin: 0 0 16px; }
+#gateMain .big-btn { width: 100%; margin-bottom: 10px; }
+
+.link-btn {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.95rem;
+  padding: 8px;
+}
+
+.gate-label { display: block; text-align: left; font-weight: 600; margin-bottom: 6px; }
+
+.gate-card input[type="text"] {
+  width: 100%;
+  font-size: 1.1rem;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+}
+
+#familyCodeInput {
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.gate-btns { display: flex; gap: 10px; }
+.gate-btns .big-btn { flex: 1; }
+.gate-err { color: var(--danger); font-size: 0.9rem; margin-bottom: 10px; min-height: 1.2em; }
+
+.big-code {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 3px;
+  background: #eef3fb;
+  border-radius: var(--radius);
+  padding: 14px;
+  margin: 0 0 16px;
+}
+
+#gateCodeShow .big-btn { width: 100%; }
+
+/* ---- family row in the members modal ---- */
+
+.family-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #eef3fb;
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.family-name { font-weight: 700; }
+.family-code { color: var(--muted); font-size: 0.9rem; }
