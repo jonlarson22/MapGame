@@ -437,6 +437,7 @@ function renderFacts(region, code) {
         ['Became a state', `${facts.admitted} — ${ordinal(facts.order)}`],
         ['Motto', facts.motto],
         ['Nickname', facts.nick],
+        ['Top export', facts.export],
         ['State bird', facts.bird],
         ['State flower', facts.flower],
       ]
@@ -446,6 +447,7 @@ function renderFacts(region, code) {
         ['Joined Confederation', `${facts.joined} — ${ordinal(facts.order)}`],
         // NT and YT have no official motto — skip the row instead of faking one.
         ...(facts.motto ? [['Motto', facts.motto]] : []),
+        ['Top export', facts.export],
         ['Provincial bird', facts.bird],
         ['Provincial flower', facts.flower],
       ];
