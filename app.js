@@ -432,6 +432,7 @@ function renderFacts(region, code) {
   els.sheetFacts.innerHTML = '';
   const rows = region === 'US'
     ? [
+        ['Capital', facts.capital],
         ['Population (2024 est.)', facts.pop],
         ['Became a state', `${facts.admitted} — ${ordinal(facts.order)}`],
         ['Motto', facts.motto],
@@ -440,6 +441,7 @@ function renderFacts(region, code) {
         ['State flower', facts.flower],
       ]
     : [
+        ['Capital', facts.capital],
         ['Population (2024 est.)', facts.pop],
         ['Joined Confederation', `${facts.joined} — ${ordinal(facts.order)}`],
         // NT and YT have no official motto — skip the row instead of faking one.
