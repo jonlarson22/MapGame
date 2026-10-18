@@ -68,6 +68,20 @@ function blankState() {
 export function createStore(storage) {
   const listeners = new Set();
   let state;
+  // Firestore adapter (attached by firebase.js once signed in). Null =
+  // local-only mode; every push() below becomes a no-op.
+  let remote = null;
+
+  // Fire-and-forget write-through: local state is already updated, this just
+  // mirrors it to Firestore. Firestore queues while offline. A failed write
+  // is healed by the next launch's sync pass, so nothing is lost silently.
+  function push(fn) {
+    if (!remote) return;
+    try {
+      const r = fn(remote);
+      if (r && typeof r.catch === 'function') r.catch((e) => console.warn('[sync] write failed', e));
+    } catch (e) { console.warn('[sync] write failed', e); }
+  }
 
   try {
     const raw = storage.getItem(STORAGE_KEY);
@@ -133,6 +147,47 @@ export function createStore(storage) {
 
     onChange(cb) { listeners.add(cb); return () => listeners.delete(cb); },
 
+    // ---- multiplayer sync ----
+    // Called once by firebase.js after anonymous sign-in.
+    attachRemote(r) { remote = r; },
+    // Replace local trips with the shared remote state. Per-device prefs
+    // (deviceMemberId, active trip, viewer, color mode, region) stay local.
+    ingestRemoteTrips(remoteTrips) {
+      const localById = new Map(state.trips.map((t) => [t.id, t]));
+      state.trips = remoteTrips.map((rt) => ({
+        ...rt,
+        deviceMemberId: localById.get(rt.id) ? localById.get(rt.id).deviceMemberId : null,
+      }));
+      if (!state.trips.length) state.trips = [blankTrip('Road Trip 1')];
+      if (!state.trips.some((t) => t.id === state.activeTripId)) state.activeTripId = state.trips[0].id;
+      fixViewer();
+      save();
+    },
+    // After a name-match merge, the local trip adopts the remote doc's id.
+    adoptTripId(oldId, newId) {
+      const t = state.trips.find((x) => x.id === oldId);
+      if (!t) return;
+      t.id = newId;
+      if (state.activeTripId === oldId) state.activeTripId = newId;
+      save();
+    },
+    // After a name-match merge, local member ids are rewritten to the remote
+    // ones ("Dad" on this phone becomes the shared "Dad").
+    remapTripMembers(tripId, idMap) {
+      const t = state.trips.find((x) => x.id === tripId);
+      if (!t) return;
+      const map = (id) => idMap[id] || id;
+      t.members.forEach((m) => { m.id = map(m.id); });
+      if (t.deviceMemberId) t.deviceMemberId = map(t.deviceMemberId);
+      for (const region of ['US', 'CA']) {
+        const b = t.spots[region] || {};
+        for (const code of Object.keys(b)) b[code].forEach((s) => { s.memberId = map(s.memberId); });
+      }
+      (t.spots.EU || []).forEach((s) => { s.memberId = map(s.memberId); });
+      if (state.viewer && idMap[state.viewer]) state.viewer = idMap[state.viewer];
+      save();
+    },
+
     // ---- preferences (top bar) ----
     setRegion(r)   { if (REGIONS[r] && state.region !== r)   { state.region = r; save(); } },
     setViewer(v) {
@@ -161,18 +216,20 @@ export function createStore(storage) {
       state.trips.push(t);
       state.activeTripId = t.id;
       save();
+      push((r) => r.pushAddTrip(t));
       return t;
     },
     renameTrip(id, name) {
       const t = state.trips.find((t) => t.id === id);
       name = (name || '').trim();
-      if (t && name) { t.name = name; save(); }
+      if (t && name) { t.name = name; save(); push((r) => r.pushRenameTrip(id, name)); }
     },
     deleteTrip(id) {
       if (state.trips.length <= 1) return false; // always keep at least one trip
       state.trips = state.trips.filter((t) => t.id !== id);
       if (state.activeTripId === id) state.activeTripId = state.trips[0].id;
       save();
+      push((r) => r.pushDeleteTrip(id));
       return true;
     },
     setActiveTrip(id) {
@@ -192,11 +249,13 @@ export function createStore(storage) {
       name = (name || '').trim();
       if (!name) return null;
       const m = { id: newId('m'), name, color: color || store.nextFreeColor() };
-      trip().members.push(m);
+      const t = trip();
+      t.members.push(m);
       // first member added on this device automatically claims it
-      if (!trip().deviceMemberId) trip().deviceMemberId = m.id;
+      if (!t.deviceMemberId) t.deviceMemberId = m.id;
       fixViewer(); // e.g. first player becomes the viewed one
       save();
+      push((r) => r.pushAddMember(t.id, m));
       return m;
     },
     removeMember(id) {
@@ -205,10 +264,12 @@ export function createStore(storage) {
       if (t.deviceMemberId === id) t.deviceMemberId = t.members[0] ? t.members[0].id : null;
       fixViewer(); // the viewed player may be gone
       save(); // their old spots stay on the map, shown in gray
+      push((r) => r.pushRemoveMember(t.id, id));
     },
     setMemberColor(id, color) {
-      const m = trip().members.find((m) => m.id === id);
-      if (m && color) { m.color = color; save(); }
+      const t = trip();
+      const m = t.members.find((m) => m.id === id);
+      if (m && color) { m.color = color; save(); push((r) => r.pushSetMemberColor(t.id, id, color)); }
     },
     setDeviceMember(id) {
       if (trip().members.some((m) => m.id === id) && trip().deviceMemberId !== id) {
@@ -225,17 +286,23 @@ export function createStore(storage) {
       const t = trip();
       if (!t.members.some((m) => m.id === memberId)) return false;
       const at = Date.now();
+      // NOTE: device clock, not a server timestamp — close enough for a family
+      // game, and it keeps local and remote spot objects identical (which is
+      // what makes arrayUnion dedup and arrayRemove exact-match work).
+      const spot = { memberId, at };
       if (region === 'EU') {
-        t.spots.EU.push({ memberId, at });
+        t.spots.EU.push(spot);
         save();
+        push((r) => r.pushAddSpot(t.id, region, code, spot));
         return true;
       }
       const bucket = t.spots[region];
       if (!bucket) return false;
       bucket[code] = bucket[code] || [];
       if (bucket[code].some((s) => s.memberId === memberId)) return false;
-      bucket[code].push({ memberId, at });
+      bucket[code].push(spot);
       save();
+      push((r) => r.pushAddSpot(t.id, region, code, spot));
       return true;
     },
     // Removes ONE member's mark (used by double-tap undo).
@@ -244,7 +311,12 @@ export function createStore(storage) {
       if (region === 'EU') {
         // undo = remove this member's most recent EU spot
         for (let i = t.spots.EU.length - 1; i >= 0; i--) {
-          if (t.spots.EU[i].memberId === memberId) { t.spots.EU.splice(i, 1); save(); return true; }
+          if (t.spots.EU[i].memberId === memberId) {
+            const [gone] = t.spots.EU.splice(i, 1);
+            save();
+            push((r) => r.pushRemoveSpot(t.id, region, code, gone));
+            return true;
+          }
         }
         return false;
       }
@@ -252,8 +324,9 @@ export function createStore(storage) {
       if (!arr) return false;
       const i = arr.findIndex((s) => s.memberId === memberId);
       if (i === -1) return false;
-      arr.splice(i, 1);
+      const [gone] = arr.splice(i, 1);
       save();
+      push((r) => r.pushRemoveSpot(t.id, region, code, gone));
       return true;
     },
     // Who spotted this region code (before any viewer filtering)?

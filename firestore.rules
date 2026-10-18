@@ -1,0 +1,25 @@
+rules_version = '2';
+
+// MapGame — family license-plate spotting game.
+//
+// Every phone signs in anonymously on launch (no login screen, no accounts),
+// so "signed in" here just means "has the app". Any signed-in device can read
+// and write the shared trips. No private data lives in this database — just
+// trip names, player names/colors, and which states were spotted when.
+//
+// To install: Firebase console → Firestore Database → Rules tab → paste this
+// file → Publish.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /trips/{tripId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -2,7 +2,7 @@
 // road-trip dead zones. Bump CACHE whenever shipped files change, otherwise
 // phones keep serving the old version.
 
-const CACHE = 'mapgame-v5';
+const CACHE = 'mapgame-v7';
 
 const APP_SHELL = [
   './',
@@ -11,6 +11,7 @@ const APP_SHELL = [
   './app.js',
   './store.js',
   './facts.js',
+  './firebase.js',
   './manifest.json',
   './maps/us.svg',
   './maps/ca.svg',

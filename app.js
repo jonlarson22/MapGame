@@ -53,7 +53,16 @@ const HOLD_MS = 500;
 // Setup
 // ---------------------------------------------------------------------------
 
-const store = createStore(safeStorage());
+const appStorage = safeStorage();
+const store = createStore(appStorage);
+
+// Multiplayer (Firestore). Lazy import so the app works fully offline on
+// first launch — if the SDK can't load, we just stay in local mode.
+function tryFirebase() {
+  import('./firebase.js').then((m) => m.initFirebase(store, appStorage)).catch(() => {});
+}
+tryFirebase();
+window.addEventListener('online', tryFirebase);
 
 function safeStorage() {
   try {
@@ -246,7 +255,7 @@ function renderEurope() {
     dot.className = 'dot';
     dot.style.background = store.memberColor(s.memberId);
     li.appendChild(dot);
-    li.appendChild(document.createTextNode(`${store.memberName(s.memberId)} — ${timeAgo(s.at)}`));
+    li.appendChild(document.createTextNode(`${store.memberName(s.memberId)} — ${fmtDateTime(s.at)}`));
     els.euList.appendChild(li);
   }
 }
@@ -452,7 +461,8 @@ function openSheet(region, code) {
   els.sheetTitle.textContent = names[code];
   els.sheetRows.innerHTML = '';
 
-  const spotters = visibleSpotters(region, code);
+  // earliest spot first, most recent at the bottom
+  const spotters = visibleSpotters(region, code).slice().sort((a, b) => a.at - b.at);
   const seen = new Set();
   for (const s of spotters) {
     if (seen.has(s.memberId)) continue;
@@ -463,7 +473,7 @@ function openSheet(region, code) {
     dot.className = 'dot';
     dot.style.background = store.memberColor(s.memberId);
     row.appendChild(dot);
-    row.appendChild(document.createTextNode(`${store.memberName(s.memberId)} — ${timeAgo(s.at)}`));
+    row.appendChild(document.createTextNode(`${store.memberName(s.memberId)} — ${fmtDateTime(s.at)}`));
     els.sheetRows.appendChild(row);
   }
   if (!spotters.length) {
@@ -612,13 +622,14 @@ function closeColorPicker() {
 // Small helpers
 // ---------------------------------------------------------------------------
 
-function timeAgo(ts) {
-  const mins = Math.floor((Date.now() - ts) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return new Date(ts).toLocaleDateString();
+// "Oct 17, 6:42 PM" in the device's local timezone (follows the family as
+// they travel); adds the year when the spot isn't from this year.
+function fmtDateTime(ts) {
+  const d = new Date(ts);
+  const date = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const year = d.getFullYear() === new Date().getFullYear() ? '' : `, ${d.getFullYear()}`;
+  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return `${date}${year}, ${time}`;
 }
 
 let toastTimer = null;
